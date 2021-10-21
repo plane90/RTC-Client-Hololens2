@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "com.microsoft.mixedreality.webrtc": "file:E:/_Dev_WebRTC/com.microsoft.mixedreality.webrtc-2.0.2.tgz",
     "com.unity.collab-proxy": "1.5.7",
     "com.unity.ide.rider": "2.0.7",
     "com.unity.ide.visualstudio": "2.0.9",
