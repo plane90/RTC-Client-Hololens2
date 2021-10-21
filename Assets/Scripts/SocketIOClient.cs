@@ -5,6 +5,7 @@ using UnityEngine;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
+using System.Text;
 
 public class SocketIOClient : IDisposable
 {
@@ -58,7 +59,7 @@ public class SocketIOClient : IDisposable
 
     public SocketIOClient(Uri serverUri)
     {
-        var uriBuilder = new System.Text.StringBuilder();
+        var uriBuilder = new StringBuilder();
         uriBuilder.Append("ws://");
         uriBuilder.Append(serverUri.Host);
         if (!serverUri.IsDefaultPort)
@@ -93,7 +94,7 @@ public class SocketIOClient : IDisposable
             {
                 int chunkedBufferSize = 8 * 1024;
                 var chunkedBuffer = new byte[chunkedBufferSize];
-
+                Debug.Log("ReceiveAsync is not block function");
                 try
                 {
                     result = await ws.ReceiveAsync(
@@ -130,12 +131,12 @@ public class SocketIOClient : IDisposable
             switch (result.MessageType)
             {
                 case WebSocketMessageType.Text:
-                    string text = System.Text.Encoding.UTF8.GetString(buffer, 0, currentIdx);
+                    string text = Encoding.UTF8.GetString(buffer, 0, currentIdx);
                     Debug.Log(text);
                     // SocketIO 핸드쉐이크, 소켓이 열리면 Connected를 날려줘야한다.
                     if (IsOpendMessage(text))
                     {
-                        var bytesForConnected = System.Text.Encoding.UTF8.GetBytes(MessageType.Connected.GetHashCode().ToString());
+                        var bytesForConnected = Encoding.UTF8.GetBytes(MessageType.Connected.GetHashCode().ToString());
                         await SendAsync(WebSocketMessageType.Text, bytesForConnected, System.Threading.CancellationToken.None);
                     }
                     else if (IsConnetedMessage(text))
@@ -145,7 +146,7 @@ public class SocketIOClient : IDisposable
                     // to keep track of establishment of connection
                     else if (IsPingMessage(text))
                     {
-                        var bytesForPong = System.Text.Encoding.UTF8.GetBytes(MessageType.Pong.GetHashCode().ToString());
+                        var bytesForPong = Encoding.UTF8.GetBytes(MessageType.Pong.GetHashCode().ToString());
                         await SendAsync(WebSocketMessageType.Text, bytesForPong, System.Threading.CancellationToken.None);
                     }
                     else if (IsEventMessage(text))
@@ -155,7 +156,7 @@ public class SocketIOClient : IDisposable
                             text.IndexOf('\"'),
                             text.IndexOf(',') - text.IndexOf('\"')).
                             Trim('\"');
-                        eventMap[eventId](new Message(text));
+                        _ = Task.Factory.StartNew(() => eventMap[eventId](new Message(text)));
                     }
                     break;
                 case WebSocketMessageType.Binary:
