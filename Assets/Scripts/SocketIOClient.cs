@@ -52,7 +52,7 @@ public class SocketIOClient : IDisposable
         }
     }
 
-    private ClientWebSocket ws;
+    public ClientWebSocket ws;
     private Uri serverUri;
     private Dictionary<string, Action<Message>> eventMap = new Dictionary<string, Action<Message>>();
     public event Action<SocketIOClient> OnConnected;
@@ -94,12 +94,13 @@ public class SocketIOClient : IDisposable
             {
                 int chunkedBufferSize = 8 * 1024;
                 var chunkedBuffer = new byte[chunkedBufferSize];
-                Debug.Log("ReceiveAsync is not block function");
                 try
                 {
+                    Debug.Log($"ReceiveAsync is called {System.Threading.Thread.CurrentThread.ManagedThreadId}");
                     result = await ws.ReceiveAsync(
                         new ArraySegment<byte>(chunkedBuffer),
                         System.Threading.CancellationToken.None).ConfigureAwait(false);
+                    Debug.Log($"ReceiveAsync return data {System.Threading.Thread.CurrentThread.ManagedThreadId}");
                     var freeSize = buffer.Length - currentIdx;
                     if (freeSize < result.Count)
                     {
@@ -156,7 +157,8 @@ public class SocketIOClient : IDisposable
                             text.IndexOf('\"'),
                             text.IndexOf(',') - text.IndexOf('\"')).
                             Trim('\"');
-                        _ = Task.Factory.StartNew(() => eventMap[eventId](new Message(text)));
+                        eventMap[eventId](new Message(text));
+                        //_ = Task.Factory.StartNew(() => eventMap[eventId](new Message(text)));
                     }
                     break;
                 case WebSocketMessageType.Binary:
@@ -179,7 +181,7 @@ public class SocketIOClient : IDisposable
                     break;
             }
         }
-        Debug.Log("End of Websocket Task");
+        Debug.Log("----------End of Websocket Task");
     }
 
     private static bool IsOpendMessage(string msg)
@@ -209,7 +211,7 @@ public class SocketIOClient : IDisposable
 
     public Task EmitAsync(string eventId, params object[] datas)
     {
-        var socketIoFormatBuilder = new System.Text.StringBuilder();
+        var socketIoFormatBuilder = new StringBuilder();
         // "42["
         socketIoFormatBuilder.Append("42[");
         // "42[\"eventId\""
@@ -224,7 +226,7 @@ public class SocketIOClient : IDisposable
         // "42[\"eventId\",\"data[0]"\, {\"data[1]\"}]"
         socketIoFormatBuilder.Append("]");
         string jsonString = socketIoFormatBuilder.ToString();
-        return SendAsync(WebSocketMessageType.Text, System.Text.Encoding.UTF8.GetBytes(jsonString), System.Threading.CancellationToken.None);
+        return SendAsync(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(jsonString), System.Threading.CancellationToken.None);
     }
 
     private async Task SendAsync(WebSocketMessageType type, byte[] bytes, System.Threading.CancellationToken cancellationToken)
@@ -244,12 +246,12 @@ public class SocketIOClient : IDisposable
             Buffer.BlockCopy(bytes, currentIdx, chunkedBuffer, 0, chunkedBuffer.Length);
             bool endOfMessage = pages - 1 == i;
             await ws.SendAsync(new ArraySegment<byte>(chunkedBuffer), type, endOfMessage, cancellationToken).ConfigureAwait(false);
-            Debug.Log($"sended: {System.Text.Encoding.UTF8.GetString(chunkedBuffer)}");
+            Debug.Log($"sended: {Encoding.UTF8.GetString(chunkedBuffer)}");
         }
     }
 
     public void Dispose()
     {
-        ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "close", System.Threading.CancellationToken.None);
+        ws.Dispose();
     }
 }

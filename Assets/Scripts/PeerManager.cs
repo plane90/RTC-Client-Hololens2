@@ -33,13 +33,10 @@ static class PeerManager
                     new IceServer{ Urls = { "stun:stun.l.google.com:19302" } }
                 }
         };
-        UnityEngine.Debug.Log($"try to Init PeerConnection, {System.Threading.Thread.CurrentThread.ManagedThreadId}");
         await pc.InitializeAsync(config);
-        UnityEngine.Debug.Log($"PeerConnection Init done, {System.Threading.Thread.CurrentThread.ManagedThreadId}");
         var dc = await pc.AddDataChannelAsync("test", false, false);
-        UnityEngine.Debug.Log($"Datachnnel add done, {System.Threading.Thread.CurrentThread.ManagedThreadId}");
         peerDataMap.Add(id, new PeerData { id = id, dataChannel = dc, peerConnection = pc });
-        UnityEngine.Debug.Log($"PeerConnection Setting done, {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        UnityEngine.Debug.Log($"Creating PeerConnection done, {System.Threading.Thread.CurrentThread.ManagedThreadId}");
     }
 
     public static PeerData GetPeerData(string id)

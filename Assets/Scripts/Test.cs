@@ -2,11 +2,13 @@ using System;
 using UnityEngine;
 using Microsoft.MixedReality.WebRTC;
 using System.Text;
+using System.Net.WebSockets;
 
 public class Test : MonoBehaviour
 {
     public string signallingServerUri = "http://localhost:14002/";
     public string roomId = "a";
+
     async void Start()
     {
         Debug.Log($"i'm main Thread,  {System.Threading.Thread.CurrentThread.ManagedThreadId}");
@@ -17,9 +19,7 @@ public class Test : MonoBehaviour
         var wsClient = new SocketIOClient(new Uri(signallingServerUri));
         wsClient.OnConnected += async (sock) =>
         {
-            Debug.Log($"Try to EmitAsync,  {System.Threading.Thread.CurrentThread.ManagedThreadId}");
             await sock.EmitAsync("join", "a");
-            Debug.Log($"Emit Join done,  {System.Threading.Thread.CurrentThread.ManagedThreadId}");
         };
         wsClient.On("hi", (msg) =>
         {
@@ -100,6 +100,7 @@ public class Test : MonoBehaviour
         });
 
         await wsClient.ConnectWebSocket();
+        Debug.Log("---------disconnected");
     }
 
     public void Send(string msg)
