@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using System.Text;
 
-public class SocketIOClient : IDisposable
+public class SocketIOClient
 {
     public enum MessageType
     {
@@ -43,7 +43,7 @@ public class SocketIOClient : IDisposable
                     jsonTxt = "{\"msg\":[" + jsonTxt + "}";
                 }
                 return JToken.Parse(jsonTxt)["msg"]; 
-            } 
+            }
         }
 
         public Message(string rawText)
@@ -56,6 +56,7 @@ public class SocketIOClient : IDisposable
     private Uri serverUri;
     private Dictionary<string, Action<Message>> eventMap = new Dictionary<string, Action<Message>>();
     public event Action<SocketIOClient> OnConnected;
+    public event Action<SocketIOClient> OnDisconnected;
 
     public SocketIOClient(Uri serverUri)
     {
@@ -96,11 +97,11 @@ public class SocketIOClient : IDisposable
                 var chunkedBuffer = new byte[chunkedBufferSize];
                 try
                 {
-                    Debug.Log($"ReceiveAsync is called {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+                    Debug.Log($"ListenAsync\tReceiveAsync is called {System.Threading.Thread.CurrentThread.ManagedThreadId}");
                     result = await ws.ReceiveAsync(
                         new ArraySegment<byte>(chunkedBuffer),
                         System.Threading.CancellationToken.None).ConfigureAwait(false);
-                    Debug.Log($"ReceiveAsync return data {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+                    Debug.Log($"ListenAsync\tReceiveAsync return data {System.Threading.Thread.CurrentThread.ManagedThreadId}");
                     var freeSize = buffer.Length - currentIdx;
                     if (freeSize < result.Count)
                     {
@@ -127,13 +128,13 @@ public class SocketIOClient : IDisposable
                 break;
             }
 
-            Debug.Log($"Packet Received, MessageType: {result.MessageType}");
+            Debug.Log($"ListenAsync\tPacket Received, MessageType: {result.MessageType}");
             int eio = 4;
             switch (result.MessageType)
             {
                 case WebSocketMessageType.Text:
                     string text = Encoding.UTF8.GetString(buffer, 0, currentIdx);
-                    Debug.Log(text);
+                    Debug.Log($"ListenAsync\t{text}");
                     // SocketIO 핸드쉐이크, 소켓이 열리면 Connected를 날려줘야한다.
                     if (IsOpendMessage(text))
                     {
@@ -144,6 +145,10 @@ public class SocketIOClient : IDisposable
                     {
                         OnConnected(this);
                     }
+                    else if (IsDisconnetedMessage(text))
+                    {
+                        OnDisconnected(this);
+                    }
                     // to keep track of establishment of connection
                     else if (IsPingMessage(text))
                     {
@@ -152,7 +157,6 @@ public class SocketIOClient : IDisposable
                     }
                     else if (IsEventMessage(text))
                     {
-                        // "hi"
                         var eventId = text.Substring(
                             text.IndexOf('\"'),
                             text.IndexOf(',') - text.IndexOf('\"')).
@@ -184,19 +188,23 @@ public class SocketIOClient : IDisposable
         Debug.Log("----------End of Websocket Task");
     }
 
-    private static bool IsOpendMessage(string msg)
+    private bool IsOpendMessage(string msg)
     {
         return msg.StartsWith(MessageType.Opened.GetHashCode().ToString());
     }
-    private static bool IsConnetedMessage(string msg)
+    private bool IsConnetedMessage(string msg)
     {
         return msg.StartsWith(MessageType.Connected.GetHashCode().ToString());
     }
-    private static bool IsPingMessage(string msg)
+    private bool IsDisconnetedMessage(string msg)
+    {
+        return msg.StartsWith(MessageType.Disconnected.GetHashCode().ToString());
+    }
+    private bool IsPingMessage(string msg)
     {
         return msg.StartsWith(MessageType.Ping.GetHashCode().ToString());
     }
-    private static bool IsEventMessage(string msg)
+    private bool IsEventMessage(string msg)
     {
         return msg.StartsWith(MessageType.EventMessage.GetHashCode().ToString());
     }
@@ -213,7 +221,7 @@ public class SocketIOClient : IDisposable
     {
         var socketIoFormatBuilder = new StringBuilder();
         // "42["
-        socketIoFormatBuilder.Append("42[");
+        socketIoFormatBuilder.Append(MessageType.EventMessage.GetHashCode() + "[");
         // "42[\"eventId\""
         socketIoFormatBuilder.Append(JsonConvert.SerializeObject(eventId));
         foreach (var data in datas)
@@ -246,12 +254,7 @@ public class SocketIOClient : IDisposable
             Buffer.BlockCopy(bytes, currentIdx, chunkedBuffer, 0, chunkedBuffer.Length);
             bool endOfMessage = pages - 1 == i;
             await ws.SendAsync(new ArraySegment<byte>(chunkedBuffer), type, endOfMessage, cancellationToken).ConfigureAwait(false);
-            Debug.Log($"sended: {Encoding.UTF8.GetString(chunkedBuffer)}");
+            Debug.Log($"SendAsync\tsended: {Encoding.UTF8.GetString(chunkedBuffer)}");
         }
-    }
-
-    public void Dispose()
-    {
-        ws.Dispose();
     }
 }

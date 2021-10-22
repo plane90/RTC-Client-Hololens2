@@ -9,6 +9,13 @@ public class Test : MonoBehaviour
     public string signallingServerUri = "http://localhost:14002/";
     public string roomId = "a";
 
+    private SocketIOClient wsClient;
+
+    private void OnDestroy()
+    {
+        PeerManager.CloseAll();
+    }
+
     async void Start()
     {
         Debug.Log($"i'm main Thread,  {System.Threading.Thread.CurrentThread.ManagedThreadId}");
@@ -16,10 +23,14 @@ public class Test : MonoBehaviour
         {
             signallingServerUri = "http://localhost:14002/";
         }
-        var wsClient = new SocketIOClient(new Uri(signallingServerUri));
+        wsClient = new SocketIOClient(new Uri(signallingServerUri));
         wsClient.OnConnected += async (sock) =>
         {
             await sock.EmitAsync("join", "a");
+        };
+        wsClient.OnDisconnected += (sock) =>
+        {
+            Debug.Log("websocket disconnected");
         };
         wsClient.On("hi", (msg) =>
         {
@@ -32,9 +43,9 @@ public class Test : MonoBehaviour
         wsClient.On("noti_join", async (msg) =>
         {
             var socketId = msg.Json[0].ToString();
-            Debug.Log($"{socketId},  {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+            Debug.Log($"noti_join\t{socketId},  {System.Threading.Thread.CurrentThread.ManagedThreadId}");
             await PeerManager.CreatePeerConnectionAndDataChannel(socketId);
-            Debug.Log($"try to get peerConnection via PeerManager {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+            Debug.Log($"noti_join\ttry to get peerConnection via PeerManager {System.Threading.Thread.CurrentThread.ManagedThreadId}");
             var pc = PeerManager.GetPeerConnection(socketId);
             pc.CreateOffer();
 
@@ -85,6 +96,7 @@ public class Test : MonoBehaviour
             string socketId = msg.Json[0]["socketId"].ToString();
             var pc = PeerManager.GetPeerConnection(socketId);
             pc.SetRemoteDescriptionAsync(sdpAnswer);
+            Debug.Log($"answer\tSet Remote Done\n");
         });
 
         wsClient.On("ice", (msg) =>
@@ -92,11 +104,11 @@ public class Test : MonoBehaviour
             Debug.Log($"[received] ice \n");
             var iceCandidate = new IceCandidate();
             iceCandidate.Content = msg.Json[0]["Content"].ToString();
-            iceCandidate.SdpMid = msg.Json[0]["SdpMid"].ToString();
-            iceCandidate.SdpMlineIndex = int.Parse(msg.Json[0]["SdpMlineIndex"].ToString());
-            string socketId = msg.Json[0]["socketId"].ToString();
-            var pc = PeerManager.GetPeerConnection(socketId);
-            pc.AddIceCandidate(iceCandidate);
+            iceCandidate.SdpMid = "0";
+            iceCandidate.SdpMlineIndex = 0;
+            var socketId = msg.Json[0]["socketId"].ToString();
+            PeerManager.GetPeerConnection(socketId).AddIceCandidate(iceCandidate);
+            Debug.Log($"ice\tAdd Ice Done\n");
         });
 
         await wsClient.ConnectWebSocket();
