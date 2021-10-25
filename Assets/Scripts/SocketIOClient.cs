@@ -1,4 +1,5 @@
 using System.Net.WebSockets;
+using System.Threading;
 using System.Threading.Tasks;
 using System;
 using UnityEngine;
@@ -7,7 +8,7 @@ using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 using System.Text;
 
-public class SocketIOClient
+public class SocketIOClient : IDisposable
 {
     public enum MessageType
     {
@@ -28,9 +29,9 @@ public class SocketIOClient
         private string rawText;
         public string RawText { get => rawText; }
         private string jsonTxt = "";
-        public JToken Json 
-        { 
-            get 
+        public JToken Json
+        {
+            get
             {
                 if (string.IsNullOrEmpty(jsonTxt))
                 {
@@ -42,7 +43,7 @@ public class SocketIOClient
                     // {\"msg\":[{\"a\":\"javascript object\",\"b\":2},\"string\"]}
                     jsonTxt = "{\"msg\":[" + jsonTxt + "}";
                 }
-                return JToken.Parse(jsonTxt)["msg"]; 
+                return JToken.Parse(jsonTxt)["msg"];
             }
         }
 
@@ -52,9 +53,11 @@ public class SocketIOClient
         }
     }
 
-    public ClientWebSocket ws;
+    private ClientWebSocket ws;
     private Uri serverUri;
     private Dictionary<string, Action<Message>> eventMap = new Dictionary<string, Action<Message>>();
+    private CancellationTokenSource listenCancelSrc = new CancellationTokenSource();
+
     public event Action<SocketIOClient> OnConnected;
     public event Action<SocketIOClient> OnDisconnected;
 
@@ -78,7 +81,9 @@ public class SocketIOClient
     public async Task ConnectWebSocket()
     {
         ws = new ClientWebSocket();
-        await ws.ConnectAsync(serverUri, System.Threading.CancellationToken.None).ConfigureAwait(false);
+        var timeout = TimeSpan.FromSeconds(10);
+        var timeoutCancle = new CancellationTokenSource(timeout);
+        await ws.ConnectAsync(serverUri, timeoutCancle.Token).ConfigureAwait(false);
         _ = await Task.Factory.StartNew(ListenAsync, TaskCreationOptions.LongRunning);
     }
 
@@ -86,6 +91,10 @@ public class SocketIOClient
     {
         while (true)
         {
+            if (listenCancelSrc.IsCancellationRequested)
+            {
+                break;
+            }
             int bufferSize = 0;
             var buffer = new byte[bufferSize];
             int currentIdx = 0;
@@ -97,11 +106,11 @@ public class SocketIOClient
                 var chunkedBuffer = new byte[chunkedBufferSize];
                 try
                 {
-                    Debug.Log($"ListenAsync\tReceiveAsync is called {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+                    Debug.Log($"ListenAsync\tReceiveAsync is called {Thread.CurrentThread.ManagedThreadId}");
                     result = await ws.ReceiveAsync(
                         new ArraySegment<byte>(chunkedBuffer),
-                        System.Threading.CancellationToken.None).ConfigureAwait(false);
-                    Debug.Log($"ListenAsync\tReceiveAsync return data {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+                        CancellationToken.None).ConfigureAwait(false);
+                    Debug.Log($"ListenAsync\tReceiveAsync return data {Thread.CurrentThread.ManagedThreadId}");
                     var freeSize = buffer.Length - currentIdx;
                     if (freeSize < result.Count)
                     {
@@ -139,21 +148,21 @@ public class SocketIOClient
                     if (IsOpendMessage(text))
                     {
                         var bytesForConnected = Encoding.UTF8.GetBytes(MessageType.Connected.GetHashCode().ToString());
-                        await SendAsync(WebSocketMessageType.Text, bytesForConnected, System.Threading.CancellationToken.None);
+                        await SendAsync(WebSocketMessageType.Text, bytesForConnected, CancellationToken.None);
                     }
                     else if (IsConnetedMessage(text))
                     {
-                        OnConnected(this);
+                        _ = Task.Factory.StartNew(() => OnConnected(this));
                     }
                     else if (IsDisconnetedMessage(text))
                     {
-                        OnDisconnected(this);
+                        _ = Task.Factory.StartNew(() => OnDisconnected(this));
                     }
                     // to keep track of establishment of connection
                     else if (IsPingMessage(text))
                     {
                         var bytesForPong = Encoding.UTF8.GetBytes(MessageType.Pong.GetHashCode().ToString());
-                        await SendAsync(WebSocketMessageType.Text, bytesForPong, System.Threading.CancellationToken.None);
+                        await SendAsync(WebSocketMessageType.Text, bytesForPong, CancellationToken.None);
                     }
                     else if (IsEventMessage(text))
                     {
@@ -161,8 +170,8 @@ public class SocketIOClient
                             text.IndexOf('\"'),
                             text.IndexOf(',') - text.IndexOf('\"')).
                             Trim('\"');
-                        eventMap[eventId](new Message(text));
-                        //_ = Task.Factory.StartNew(() => eventMap[eventId](new Message(text)));
+                        //eventMap[eventId](new Message(text));
+                        _ = Task.Factory.StartNew(() => eventMap[eventId](new Message(text)));
                     }
                     break;
                 case WebSocketMessageType.Binary:
@@ -179,7 +188,7 @@ public class SocketIOClient
                     }
                     break;
                 case WebSocketMessageType.Close:
-                    Debug.Log("WebSocket Closed");
+                    Debug.Log("-----------WebSocket Closed");
                     break;
                 default:
                     break;
@@ -234,10 +243,10 @@ public class SocketIOClient
         // "42[\"eventId\",\"data[0]"\, {\"data[1]\"}]"
         socketIoFormatBuilder.Append("]");
         string jsonString = socketIoFormatBuilder.ToString();
-        return SendAsync(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(jsonString), System.Threading.CancellationToken.None);
+        return SendAsync(WebSocketMessageType.Text, Encoding.UTF8.GetBytes(jsonString), CancellationToken.None);
     }
 
-    private async Task SendAsync(WebSocketMessageType type, byte[] bytes, System.Threading.CancellationToken cancellationToken)
+    private async Task SendAsync(WebSocketMessageType type, byte[] bytes, CancellationToken cancellationToken)
     {
         int chunkedBufferSize = 8 * 1024;
         int pages = (int)Math.Ceiling(bytes.Length * 1.0 / chunkedBufferSize);
@@ -255,6 +264,16 @@ public class SocketIOClient
             bool endOfMessage = pages - 1 == i;
             await ws.SendAsync(new ArraySegment<byte>(chunkedBuffer), type, endOfMessage, cancellationToken).ConfigureAwait(false);
             Debug.Log($"SendAsync\tsended: {Encoding.UTF8.GetString(chunkedBuffer)}");
+        }
+    }
+
+    public async void Dispose()
+    {
+        if (ws.State == WebSocketState.Open)
+        {
+            await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).ConfigureAwait(false);
+            listenCancelSrc.Cancel();
+            ws.Dispose();
         }
     }
 }

@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.microsoft.mixedreality.webrtc": {
-      "version": "file:D:/_Dev_WebRTC/com.microsoft.mixedreality.webrtc-2.0.2.tgz",
+      "version": "file:E:/_Dev_WebRTC/com.microsoft.mixedreality.webrtc-2.0.2.tgz",
       "depth": 0,
       "source": "local-tarball",
       "dependencies": {}

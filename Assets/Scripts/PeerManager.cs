@@ -76,11 +76,19 @@ static class PeerManager
     {
         foreach (var peer in PeerDatas)
         {
-            UnityEngine.Debug.Log("PeerManager\tTry to close peer");
-            peer.peerConnection.RemoveDataChannel(peer.dataChannel);
-            UnityEngine.Debug.Log("PeerManager\tRemove DC done");
-            peer.peerConnection.Close();
-            UnityEngine.Debug.Log("PeerManager\tClose Done");
+            try
+            {
+                UnityEngine.Debug.Log("PeerManager\tTry to close peer");
+                peer.peerConnection.RemoveDataChannel(peer.dataChannel);
+                UnityEngine.Debug.Log("PeerManager\tRemove DC done");
+                //Task.Factory.StartNew(() => peer.peerConnection.Close());
+                UnityEngine.Debug.Log("PeerManager\tClose Done");
+            }
+            catch (System.Exception e)
+            {
+                UnityEngine.Debug.Log(e);
+            }
+            
         }
         peerDataMap.Clear();
     }

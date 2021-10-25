@@ -13,6 +13,7 @@ public class Test : MonoBehaviour
 
     private void OnDestroy()
     {
+        wsClient?.Dispose();
         PeerManager.CloseAll();
     }
 
@@ -112,7 +113,7 @@ public class Test : MonoBehaviour
         });
 
         await wsClient.ConnectWebSocket();
-        Debug.Log("---------disconnected");
+        Debug.Log($"---------disconnected {System.Threading.Thread.CurrentThread.ManagedThreadId}");
     }
 
     public void Send(string msg)
