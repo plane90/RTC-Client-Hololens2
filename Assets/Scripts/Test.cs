@@ -67,13 +67,16 @@ public class Test : MonoBehaviour
             {
                 Debug.Log($"[send] ice {iceCandidate.Content}");
                 var ice = new { iceCandidate.SdpMid, iceCandidate.SdpMlineIndex, candidate = iceCandidate.Content, socketId };
-                wsClient.EmitAsync("ice", ice, roomId, socketId);
+                wsClient.EmitAsync("ice", ice, roomId);
             };
             var dc = PeerManager.GetDataChannel(socketId);
             dc.StateChanged += () =>
             {
-                Debug.Log($"State Changed to {dc.State}");
-                dc.SendMessage(Encoding.UTF8.GetBytes("hello"));
+                Debug.Log($"State Changed to {dc.State} {socketId}");
+                if (dc.State == DataChannel.ChannelState.Open)
+                {
+                    dc.SendMessage(Encoding.UTF8.GetBytes("hello"));
+                }
             };
             dc.MessageReceived += (byte[] obj) =>
             {
@@ -94,7 +97,7 @@ public class Test : MonoBehaviour
             var sdpAnswer = new SdpMessage();
             sdpAnswer.Type = SdpMessageType.Answer;
             sdpAnswer.Content = sdp;
-            string socketId = msg.Json[0]["socketId"].ToString();
+            string socketId = msg.Json[0]["socketId"]?.ToString();
             var pc = PeerManager.GetPeerConnection(socketId);
             pc.SetRemoteDescriptionAsync(sdpAnswer);
             Debug.Log($"answer\tSet Remote Done\n");
@@ -104,16 +107,16 @@ public class Test : MonoBehaviour
         {
             Debug.Log($"[received] ice \n");
             var iceCandidate = new IceCandidate();
-            iceCandidate.Content = msg.Json[0]["Content"].ToString();
+            iceCandidate.Content = msg.Json[0]["Content"]?.ToString();
             iceCandidate.SdpMid = "0";
             iceCandidate.SdpMlineIndex = 0;
-            var socketId = msg.Json[0]["socketId"].ToString();
+            var socketId = msg.Json[0]["socketId"]?.ToString();
             PeerManager.GetPeerConnection(socketId).AddIceCandidate(iceCandidate);
             Debug.Log($"ice\tAdd Ice Done\n");
         });
 
         await wsClient.ConnectWebSocket();
-        Debug.Log($"---------disconnected {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        Debug.Log($"------Listening {System.Threading.Thread.CurrentThread.ManagedThreadId}");
     }
 
     public void Send(string msg)

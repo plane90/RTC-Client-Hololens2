@@ -79,9 +79,9 @@ static class PeerManager
             try
             {
                 UnityEngine.Debug.Log("PeerManager\tTry to close peer");
-                peer.peerConnection.RemoveDataChannel(peer.dataChannel);
+                //peer.peerConnection.RemoveDataChannel(peer.dataChannel);
                 UnityEngine.Debug.Log("PeerManager\tRemove DC done");
-                //Task.Factory.StartNew(() => peer.peerConnection.Close());
+                Task.Factory.StartNew(() => peer.peerConnection.Close());
                 UnityEngine.Debug.Log("PeerManager\tClose Done");
             }
             catch (System.Exception e)

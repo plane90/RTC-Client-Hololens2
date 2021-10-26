@@ -57,6 +57,7 @@ public class SocketIOClient : IDisposable
     private Uri serverUri;
     private Dictionary<string, Action<Message>> eventMap = new Dictionary<string, Action<Message>>();
     private CancellationTokenSource listenCancelSrc = new CancellationTokenSource();
+    private SemaphoreSlim semaphore = new SemaphoreSlim(1,1);
 
     public event Action<SocketIOClient> OnConnected;
     public event Action<SocketIOClient> OnDisconnected;
@@ -83,8 +84,10 @@ public class SocketIOClient : IDisposable
         ws = new ClientWebSocket();
         var timeout = TimeSpan.FromSeconds(10);
         var timeoutCancle = new CancellationTokenSource(timeout);
+        Debug.Log($"ConnectWebSocket ConnectAsync {Thread.CurrentThread.ManagedThreadId}");
         await ws.ConnectAsync(serverUri, timeoutCancle.Token).ConfigureAwait(false);
-        _ = await Task.Factory.StartNew(ListenAsync, TaskCreationOptions.LongRunning);
+        await Task.Factory.StartNew(ListenAsync, TaskCreationOptions.LongRunning);
+        Debug.Log($"ConnectWebSocket ListenAsync {Thread.CurrentThread.ManagedThreadId}");
     }
 
     private async Task ListenAsync()
@@ -128,6 +131,7 @@ public class SocketIOClient : IDisposable
                 catch (Exception e)
                 {
                     Debug.Log(e.Message);
+                    Debug.Log($"result Lenght:{result.Count}, CloseStatusDesc:{result.CloseStatusDescription}, MsgType:{result.MessageType}, Content:{UTF8Encoding.UTF8.GetString(chunkedBuffer)}");
                     break;
                 }
             }
@@ -148,7 +152,7 @@ public class SocketIOClient : IDisposable
                     if (IsOpendMessage(text))
                     {
                         var bytesForConnected = Encoding.UTF8.GetBytes(MessageType.Connected.GetHashCode().ToString());
-                        await SendAsync(WebSocketMessageType.Text, bytesForConnected, CancellationToken.None);
+                        _ = SendAsync(WebSocketMessageType.Text, bytesForConnected, CancellationToken.None);
                     }
                     else if (IsConnetedMessage(text))
                     {
@@ -156,13 +160,13 @@ public class SocketIOClient : IDisposable
                     }
                     else if (IsDisconnetedMessage(text))
                     {
-                        _ = Task.Factory.StartNew(() => OnDisconnected(this));
+                        //_ = Task.Factory.StartNew(() => OnDisconnected(this));
                     }
                     // to keep track of establishment of connection
                     else if (IsPingMessage(text))
                     {
                         var bytesForPong = Encoding.UTF8.GetBytes(MessageType.Pong.GetHashCode().ToString());
-                        await SendAsync(WebSocketMessageType.Text, bytesForPong, CancellationToken.None);
+                        _ = SendAsync(WebSocketMessageType.Text, bytesForPong, CancellationToken.None);
                     }
                     else if (IsEventMessage(text))
                     {
@@ -262,13 +266,16 @@ public class SocketIOClient : IDisposable
             // bytes의 currentIdx부터 chunk 사이즈 만큼 데이터를 chunk에 복사함.
             Buffer.BlockCopy(bytes, currentIdx, chunkedBuffer, 0, chunkedBuffer.Length);
             bool endOfMessage = pages - 1 == i;
+            await semaphore.WaitAsync();
             await ws.SendAsync(new ArraySegment<byte>(chunkedBuffer), type, endOfMessage, cancellationToken).ConfigureAwait(false);
+            semaphore.Release();
             Debug.Log($"SendAsync\tsended: {Encoding.UTF8.GetString(chunkedBuffer)}");
         }
     }
 
     public async void Dispose()
     {
+        Console.WriteLine($"WebSocket State: {ws.State}");
         if (ws.State == WebSocketState.Open)
         {
             await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None).ConfigureAwait(false);
