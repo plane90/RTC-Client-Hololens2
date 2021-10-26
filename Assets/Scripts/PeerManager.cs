@@ -36,7 +36,6 @@ static class PeerManager
         await pc.InitializeAsync(config);
         var dc = await pc.AddDataChannelAsync("test", false, false);
         peerDataMap.Add(id, new PeerData { id = id, dataChannel = dc, peerConnection = pc });
-        UnityEngine.Debug.Log($"Creating PeerConnection done, {System.Threading.Thread.CurrentThread.ManagedThreadId}");
     }
 
     public static PeerData GetPeerData(string id)
@@ -78,11 +77,7 @@ static class PeerManager
         {
             try
             {
-                UnityEngine.Debug.Log("PeerManager\tTry to close peer");
-                //peer.peerConnection.RemoveDataChannel(peer.dataChannel);
-                UnityEngine.Debug.Log("PeerManager\tRemove DC done");
-                Task.Factory.StartNew(() => peer.peerConnection.Close());
-                UnityEngine.Debug.Log("PeerManager\tClose Done");
+                peer.peerConnection.Close();
             }
             catch (System.Exception e)
             {
