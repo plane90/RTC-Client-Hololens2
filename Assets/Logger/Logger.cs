@@ -24,12 +24,10 @@ public class Logger : ScriptableObject
         {
             if (!instance)
             {
-                var loggers = FindObjectOfType<Logger>();
                 instance = FindObjectOfType<Logger>();
             }
             if (!instance)
             {
-                var loggers = Resources.FindObjectsOfTypeAll<Logger>();
                 instance = Resources.FindObjectsOfTypeAll<Logger>().FirstOrDefault();
             }
             return instance;
