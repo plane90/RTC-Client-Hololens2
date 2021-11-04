@@ -22,7 +22,7 @@ static class PeerManager
     {
         if (peerDataMap.ContainsKey(id))
         {
-            UnityEngine.Debug.Log($"already exist {id}");
+            Logger.Log($"already exist {id}");
             return;
         }
         var pc = new PeerConnection();
@@ -81,7 +81,7 @@ static class PeerManager
             }
             catch (System.Exception e)
             {
-                UnityEngine.Debug.Log(e);
+                Logger.Log(e);
             }
             
         }

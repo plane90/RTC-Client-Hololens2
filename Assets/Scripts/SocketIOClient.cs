@@ -84,10 +84,10 @@ public class SocketIOClient : IDisposable
         ws = new ClientWebSocket();
         var timeout = TimeSpan.FromSeconds(10);
         var timeoutCancle = new CancellationTokenSource(timeout);
-        Debug.Log($"ConnectWebSocket ConnectAsync {Thread.CurrentThread.ManagedThreadId}");
+        Logger.Log($"ConnectWebSocket ConnectAsync {Thread.CurrentThread.ManagedThreadId}");
         await ws.ConnectAsync(serverUri, timeoutCancle.Token).ConfigureAwait(false);
         await Task.Factory.StartNew(ListenAsync, TaskCreationOptions.LongRunning);
-        Debug.Log($"ConnectWebSocket ListenAsync {Thread.CurrentThread.ManagedThreadId}");
+        Logger.Log($"ConnectWebSocket ListenAsync {Thread.CurrentThread.ManagedThreadId}");
     }
 
     private async Task ListenAsync()
@@ -109,17 +109,17 @@ public class SocketIOClient : IDisposable
                 var chunkedBuffer = new byte[chunkedBufferSize];
                 try
                 {
-                    Debug.Log($"ListenAsync\tReceiveAsync is called {Thread.CurrentThread.ManagedThreadId}");
+                    Logger.Log($"ListenAsync\tReceiveAsync is called {Thread.CurrentThread.ManagedThreadId}");
                     result = await ws.ReceiveAsync(
                         new ArraySegment<byte>(chunkedBuffer),
                         CancellationToken.None).ConfigureAwait(false);
-                    Debug.Log($"ListenAsync\tReceiveAsync return data {Thread.CurrentThread.ManagedThreadId}");
+                    Logger.Log($"ListenAsync\tReceiveAsync return data {Thread.CurrentThread.ManagedThreadId}");
                     var freeSize = buffer.Length - currentIdx;
                     if (freeSize < result.Count)
                     {
                         Array.Resize(ref buffer, buffer.Length + result.Count);
                     }
-                    // chunkedBuffer에서 result.Count 만큼 모든 데이터를 buffer의 currentIdx에 복사함
+                    // chunkedBuffer의 0부터 result.Count 만큼 모든 데이터를 buffer의 currentIdx에 복사함
                     Buffer.BlockCopy(chunkedBuffer, 0, buffer, currentIdx, result.Count);
                     currentIdx += result.Count;
 
@@ -130,8 +130,8 @@ public class SocketIOClient : IDisposable
                 }
                 catch (Exception e)
                 {
-                    Debug.Log(e.Message);
-                    Debug.Log($"result Lenght:{result.Count}, CloseStatusDesc:{result.CloseStatusDescription}, MsgType:{result.MessageType}, Content:{UTF8Encoding.UTF8.GetString(chunkedBuffer)}");
+                    Logger.Log(e.Message);
+                    Logger.Log($"result Lenght:{result.Count}, CloseStatusDesc:{result.CloseStatusDescription}, MsgType:{result.MessageType}, Content:{UTF8Encoding.UTF8.GetString(chunkedBuffer)}");
                     break;
                 }
             }
@@ -141,13 +141,13 @@ public class SocketIOClient : IDisposable
                 break;
             }
 
-            Debug.Log($"ListenAsync\tPacket Received, MessageType: {result.MessageType}");
+            Logger.Log($"ListenAsync\tPacket Received, MessageType: {result.MessageType}");
             int eio = 4;
             switch (result.MessageType)
             {
                 case WebSocketMessageType.Text:
                     string text = Encoding.UTF8.GetString(buffer, 0, currentIdx);
-                    Debug.Log($"ListenAsync\t{text}");
+                    Logger.Log($"ListenAsync\t{text}");
                     // SocketIO 핸드쉐이크, 소켓이 열리면 Connected를 날려줘야한다.
                     if (IsOpendMessage(text))
                     {
@@ -192,13 +192,13 @@ public class SocketIOClient : IDisposable
                     }
                     break;
                 case WebSocketMessageType.Close:
-                    Debug.Log("-----------WebSocket Closed");
+                    Logger.Log("-----------WebSocket Closed");
                     break;
                 default:
                     break;
             }
         }
-        Debug.Log("----------End of Websocket Task");
+        Logger.Log("----------End of Websocket Task");
     }
 
     private bool IsOpendMessage(string msg)
@@ -269,7 +269,7 @@ public class SocketIOClient : IDisposable
             await semaphore.WaitAsync();
             await ws.SendAsync(new ArraySegment<byte>(chunkedBuffer), type, endOfMessage, cancellationToken).ConfigureAwait(false);
             semaphore.Release();
-            Debug.Log($"SendAsync\tsended: {Encoding.UTF8.GetString(chunkedBuffer)}");
+            Logger.Log($"SendAsync\tsended: {Encoding.UTF8.GetString(chunkedBuffer)}");
         }
     }
 

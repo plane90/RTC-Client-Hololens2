@@ -14,7 +14,7 @@ public class Logger : ScriptableObject
     private static Socket sock;
     private static Logger instance;
 
-    private static byte[] packet = new byte[1024];
+    private static byte[] packet = new byte[8 * 1024];
     private static MemoryStream ms;
     private static BinaryWriter bw;
 
@@ -45,32 +45,34 @@ public class Logger : ScriptableObject
 
     public static void Log(string logString, string stackTrace = "", LogType type = LogType.Log)
     {
-        Debug.Log("Logger.Log is called");
+        Logger.Log(logString);
+
         if (sock == null)
         {
             InitStream();
             InitSocketAndConnect();
         }
-        Debug.Log(logString);
-        switch (type)
+        // 0: string 1: binary 2: close
+        bw.Write($"0");
+        bw.Write($"{type.GetHashCode()}");
+        bw.Write($"{DateTime.Now.ToString("hh:mm:ss")}");
+        bw.Write($"{logString}");
+        bw.Write($"{stackTrace}");
+        bw.Write("");
+        sock?.Send(packet);
+        Flush();
+    }
+
+    public static void Frame()
+    {
+        if (sock == null)
         {
-            case LogType.Error:
-                bw.Write($"[{DateTime.Now.ToString("hh:mm:ss")}]{type}\nMessage:\n{logString}\nStacktrace:\n{stackTrace}\n");
-                break;
-            case LogType.Assert:
-                bw.Write($"[{DateTime.Now.ToString("hh:mm:ss")}]{type}\nMessage:\n{logString}\nStacktrace:\n{stackTrace}\n");
-                break;
-            case LogType.Warning:
-                return;
-            case LogType.Log:
-                bw.Write($"[{DateTime.Now.ToString("hh:mm:ss")}]{type}\nMessage:\n{logString}\nStacktrace:\n{stackTrace}\n");
-                break;
-            case LogType.Exception:
-                bw.Write($"[{DateTime.Now.ToString("hh:mm:ss")}]{type}\nMessage:\n{logString}\nStacktrace:\n{stackTrace}\n");
-                break;
-            default:
-                break;
+            InitStream();
+            InitSocketAndConnect();
         }
+        // 0: string 1: binary 2: close
+        bw.Write($"1");
+        bw.Write("");
         sock?.Send(packet);
         Flush();
     }
@@ -82,29 +84,40 @@ public class Logger : ScriptableObject
         bw = new BinaryWriter(ms);
     }
 
-    private static void InitSocketAndConnect()
+    private static async void InitSocketAndConnect()
     {
         if (!Instance)
         {
-            Debug.Log("Not Found Logger instance");
+            Logger.Log("Not Found Logger instance");
             return;
         }
-        sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        IPAddress ip = IPAddress.Parse(Instance.serverIp);
-        IPEndPoint ep = new IPEndPoint(ip, Instance.serverPort);
-        sock.Connect(ep);
-        Application.quitting += Disconnect;
-        Log($"Connected To Echo Server {ep}");
+        await System.Threading.Tasks.Task.Run(() =>
+        {
+            try
+            {
+                sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                var iEP = new IPEndPoint(IPAddress.Parse(Instance.serverIp), Instance.serverPort);
+                Logger.Log($"Try To Connect Echo Server {iEP}");
+                sock.Connect(iEP);
+                Application.quitting += Disconnect;
+            }
+            catch (Exception e)
+            {
+                Logger.Log(e.Message);
+            }
+        });
     }
 
     private static void Flush()
     {
+        ms.Position = 0;
         ms.SetLength(0);
     }
 
     public static void Disconnect()
     {
-        bw.Write($"exit");
+        bw?.Write("2");
+        bw?.Write("");
         sock?.Send(packet);
         sock?.Close();
         sock?.Dispose();
