@@ -81,7 +81,7 @@ static class PeerManager
             }
             catch (System.Exception e)
             {
-                Logger.Log(e);
+                Logger.Log(e.Message);
             }
             
         }

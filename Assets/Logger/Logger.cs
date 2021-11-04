@@ -45,7 +45,7 @@ public class Logger : ScriptableObject
 
     public static void Log(string logString, string stackTrace = "", LogType type = LogType.Log)
     {
-        Logger.Log(logString);
+        Debug.Log(logString);
 
         if (sock == null)
         {
@@ -88,7 +88,7 @@ public class Logger : ScriptableObject
     {
         if (!Instance)
         {
-            Logger.Log("Not Found Logger instance");
+            Debug.Log("Not Found Logger instance");
             return;
         }
         await System.Threading.Tasks.Task.Run(() =>
@@ -97,13 +97,13 @@ public class Logger : ScriptableObject
             {
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 var iEP = new IPEndPoint(IPAddress.Parse(Instance.serverIp), Instance.serverPort);
-                Logger.Log($"Try To Connect Echo Server {iEP}");
+                Debug.Log($"Try To Connect Echo Server {iEP}");
                 sock.Connect(iEP);
                 Application.quitting += Disconnect;
             }
             catch (Exception e)
             {
-                Logger.Log(e.Message);
+                Debug.Log(e.Message);
             }
         });
     }
