@@ -5,6 +5,8 @@ using System.Net;
 using System.Net.Sockets;
 using UnityEditor;
 using UnityEngine;
+using System.Runtime.CompilerServices;
+using System.Threading;
 
 public class Logger : ScriptableObject
 {
@@ -13,6 +15,7 @@ public class Logger : ScriptableObject
 
     private static Socket sock;
     private static Logger instance;
+    private static SemaphoreSlim connectSemaphore = new SemaphoreSlim(1, 1);
 
     private static byte[] packet = new byte[8 * 1024];
     private static MemoryStream ms;
@@ -43,7 +46,7 @@ public class Logger : ScriptableObject
         Disconnect();
     }
 
-    public static void Log(string logString, string stackTrace = "", LogType type = LogType.Log)
+    public static void Log(string logString, string stackTrace = "", LogType type = LogType.Log, [CallerMemberName] string methodName = null, [CallerFilePath] string fileName = null, [CallerLineNumber] int lineNo = -1)
     {
         Debug.Log(logString);
 
@@ -51,6 +54,10 @@ public class Logger : ScriptableObject
         {
             InitStream();
             InitSocketAndConnect();
+        }
+        if (string.IsNullOrEmpty(stackTrace))
+        {
+            stackTrace += $"{methodName} (at {fileName}:{lineNo})";
         }
         // 0: string 1: binary 2: close
         bw.Write($"0");
@@ -63,7 +70,7 @@ public class Logger : ScriptableObject
         Flush();
     }
 
-    public static void Frame()
+    public static void Frame(byte[] frameEncoded)
     {
         if (sock == null)
         {
@@ -72,6 +79,7 @@ public class Logger : ScriptableObject
         }
         // 0: string 1: binary 2: close
         bw.Write($"1");
+        bw.Write(frameEncoded);
         bw.Write("");
         sock?.Send(packet);
         Flush();
@@ -95,6 +103,7 @@ public class Logger : ScriptableObject
         {
             try
             {
+                connectSemaphore.Wait();
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 var iEP = new IPEndPoint(IPAddress.Parse(Instance.serverIp), Instance.serverPort);
                 Debug.Log($"Try To Connect Echo Server {iEP}");
@@ -104,6 +113,11 @@ public class Logger : ScriptableObject
             catch (Exception e)
             {
                 Debug.Log(e.Message);
+                connectSemaphore.Release();
+            }
+            finally
+            {
+                connectSemaphore.Release();
             }
         });
     }
