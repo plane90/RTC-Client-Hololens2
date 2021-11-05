@@ -133,6 +133,8 @@ public class FrameCapture
     {
         var frameWrapper = sender.TryAcquireLatestFrame();
         var frame = frameWrapper.VideoMediaFrame;
+        var bitmap = frame.SoftwareBitmap;
+        //tmap.CopyToBuffer()
         foreach (var dc in PeerManager.DataChannels)
         {
             //dc.SendMessage()
