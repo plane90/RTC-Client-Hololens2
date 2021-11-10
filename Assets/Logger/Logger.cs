@@ -109,15 +109,11 @@ public class Logger : ScriptableObject
                 Debug.Log($"Try To Connect Echo Server {iEP}");
                 sock.Connect(iEP);
                 Application.quitting += Disconnect;
+                connectSemaphore.Release();
             }
             catch (Exception e)
             {
                 Debug.Log(e.Message);
-                connectSemaphore.Release();
-            }
-            finally
-            {
-                connectSemaphore.Release();
             }
         });
     }
