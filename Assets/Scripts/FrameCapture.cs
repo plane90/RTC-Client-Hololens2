@@ -8,6 +8,9 @@ using Windows.Foundation.Collections;
 using Windows.Media.Capture;
 using Windows.Media.Capture.Frames;
 using Windows.Media.Effects;
+using Windows.Storage.Streams;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Graphics.Imaging;
 #else
 using System;
 using System.Collections;
@@ -35,7 +38,7 @@ public class FrameCapture
         FrameEncodedArrived = action;
     }
 
-    private async void Run()
+    public async void Run()
     {
         //textMesh = FindObjectOfType<TextMeshPro>();
         try
@@ -129,17 +132,43 @@ public class FrameCapture
         frameReader.FrameArrived += OnFrameArrived;
     }
     
-    private void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
+    private async void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
     {
         var frameWrapper = sender.TryAcquireLatestFrame();
         var frame = frameWrapper.VideoMediaFrame;
         var bitmap = frame.SoftwareBitmap;
-        //tmap.CopyToBuffer()
+        var buffer = await EncodedBytes(bitmap, BitmapEncoder.JpegEncoderId);
+        FrameEncodedArrived(buffer);
         foreach (var dc in PeerManager.DataChannels)
         {
             //dc.SendMessage()
         }
     }
+
+    private async Task<byte[]> EncodedBytes(SoftwareBitmap soft, Guid encoderId)
+    {
+        byte[] array = null;
+
+        // First: Use an encoder to copy from SoftwareBitmap to an in-mem stream (FlushAsync)
+        // Next:  Use ReadAsync on the in-mem stream to get byte[] array
+
+        using (var ms = new InMemoryRandomAccessStream())
+        {
+            BitmapEncoder encoder = await BitmapEncoder.CreateAsync(encoderId, ms);
+            encoder.SetSoftwareBitmap(soft);
+
+            try
+            {
+                await encoder.FlushAsync();
+            }
+            catch (Exception ex) { return new byte[0]; }
+
+            array = new byte[ms.Size];
+            await ms.ReadAsync(array.AsBuffer(), (uint)ms.Size, InputStreamOptions.None);
+        }
+        return array;
+    }
+
 
     public sealed class MrcVideoEffectDefinition : IVideoEffectDefinition
     {
