@@ -8,4 +8,9 @@ public class Test : MonoBehaviour
     {
         transform.Rotate(transform.up * 10 * Time.deltaTime);
     }
+
+    private void Start()
+    {
+        Logger.Log($"hi id:{System.Threading.Thread.CurrentThread.ManagedThreadId}");
+    }
 }

@@ -9,8 +9,17 @@ public class SendingFrameTest : MonoBehaviour
 
     private void Start()
     {
-        frameCapture = new FrameCapture(OnFrameEncodedArrived);
-        frameCapture.Run();
+        try
+        {
+            Logger.Log("Try to Run FrameCapture");
+            frameCapture = new FrameCapture(OnFrameEncodedArrived);
+            frameCapture.Run();
+            Logger.Log("FrameCapture Run");
+        }
+        catch (System.Exception e)
+        {
+            Logger.Log(e.Message, e.StackTrace, LogType.Exception);
+        }
     }
 
     private void OnFrameEncodedArrived(byte[] frame)
