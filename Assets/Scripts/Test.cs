@@ -12,5 +12,7 @@ public class Test : MonoBehaviour
     private void Start()
     {
         Logger.Log($"hi id:{System.Threading.Thread.CurrentThread.ManagedThreadId}");
+        byte[] imageData = new byte[1200000];
+        Logger.Frame(imageData);
     }
 }

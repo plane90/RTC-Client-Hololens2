@@ -10,6 +10,7 @@ using System.Threading;
 
 public class Logger : ScriptableObject
 {
+    /* instance member */
     [SerializeField] private string serverIp = "127.0.0.1";
     [SerializeField] private int serverPort = 0;
 
@@ -17,11 +18,6 @@ public class Logger : ScriptableObject
     private static Logger instance;
     private static SemaphoreSlim connectSemaphore = new SemaphoreSlim(1, 1);
     private static SemaphoreSlim sendSemaphore = new SemaphoreSlim(1, 1);
-
-    private static byte[] packet = new byte[8 * 1024];
-    private static MemoryStream ms;
-    private static BinaryWriter bw;
-    private static bool isConnected;
 
     public static Logger Instance
     {
@@ -51,63 +47,57 @@ public class Logger : ScriptableObject
     public static void Log(string logString, string stackTrace = "", LogType type = LogType.Log, [CallerMemberName] string methodName = null, [CallerFilePath] string fileName = null, [CallerLineNumber] int lineNo = -1)
     {
         Debug.Log(logString);
-        if (sock == null)
+        byte[] packet = new byte[8 * 1024];
+
+        using (MemoryStream ms = new MemoryStream(packet))
+        using (BinaryWriter bw = new BinaryWriter(ms))
         {
-            InitStream();
-            InitSocketAndConnect();
-        }
-        if (string.IsNullOrEmpty(stackTrace))
-        {
-            stackTrace += $"{methodName} (at {fileName}:{lineNo})";
-        }
-        System.Threading.Tasks.Task.Run(() =>
-        {
-            sendSemaphore.Wait();
-            Thread.Sleep(50);
-            // 0: string 1: binary 2: close
             bw.Write($"0");
             bw.Write($"{type.GetHashCode()}");
             bw.Write($"{DateTime.Now.ToString("hh:mm:ss")}");
             bw.Write($"{logString}");
+            if (string.IsNullOrEmpty(stackTrace))
+            {
+                stackTrace += $"{methodName} (at {fileName}:{lineNo})";
+            }
             bw.Write($"{stackTrace}");
             bw.Write("");
-            Debug.Log($"socket is {sock?.ToString() ?? "null"}");
-            sock?.Send(packet);
-            Debug.Log($"packet sended id:{System.Threading.Thread.CurrentThread.ManagedThreadId}");
-            Flush();
-            sendSemaphore.Release();
-        });
+            Send(packet);
+        }
     }
 
     public static void Frame(byte[] frameEncoded)
     {
-        if (sock == null)
+        var frameLength = System.Text.Encoding.UTF8.GetBytes(frameEncoded.Length.ToString()).Length + 1;
+        byte[] packet = new byte[2 + frameLength + frameEncoded.Length];
+        using (MemoryStream ms = new MemoryStream(packet))
+        using (BinaryWriter bw = new BinaryWriter(ms))
         {
-            InitStream();
-            InitSocketAndConnect();
-        }
-        System.Threading.Tasks.Task.Run(() =>
-        {
-            sendSemaphore.Wait();
-            Thread.Sleep(50);
             // 0: string 1: binary 2: close
             bw.Write($"1");
+            bw.Write($"{frameEncoded.Length}");
             bw.Write(frameEncoded);
-            bw.Write("");
+            Send(packet);
+        }
+    }
+
+    private static async void Send(byte[] packet)
+    {
+        if (sock == null)
+        {
+            await Connect();
+        }
+        _ = System.Threading.Tasks.Task.Run(() =>
+        {
+            sendSemaphore.Wait();
+            Thread.Sleep(10);
             sock?.Send(packet);
-            Flush();
+            Debug.Log($"packet sended id:{Thread.CurrentThread.ManagedThreadId}");
             sendSemaphore.Release();
         });
     }
 
-
-    private static void InitStream()
-    {
-        ms = new MemoryStream(packet);
-        bw = new BinaryWriter(ms);
-    }
-
-    private static async void InitSocketAndConnect()
+    private static async System.Threading.Tasks.Task Connect()
     {
         if (!Instance)
         {
@@ -119,8 +109,10 @@ public class Logger : ScriptableObject
             try
             {
                 connectSemaphore.Wait();
-                if (isConnected)
+                if (sock != null)
                 {
+                    Debug.Log($"sock.connected: {sock.Connected}");
+                    connectSemaphore.Release();
                     return;
                 }
                 sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -128,7 +120,6 @@ public class Logger : ScriptableObject
                 Debug.Log($"Try To Connect Echo Server {iEP}");
                 sock.Connect(iEP);
                 Application.quitting += Disconnect;
-                isConnected = true;
                 connectSemaphore.Release();
             }
             catch (Exception e)
@@ -138,24 +129,19 @@ public class Logger : ScriptableObject
         });
     }
 
-    private static void Flush()
-    {
-        if (ms != null)
-        {
-            ms.SetLength(0);
-            ms.Position = 0;
-        }
-    }
-
     public static void Disconnect()
     {
-        Flush();
-        bw?.Write("2");
-        bw?.Write("");
-        sock?.Send(packet);
-        sock?.Close();
-        sock?.Dispose();
-        ms?.Dispose();
-        bw?.Dispose();
+        byte[] packet = new byte[1 * 1024];
+
+        using (MemoryStream ms = new MemoryStream(packet))
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write("2");
+            bw.Write("");
+            sock?.Send(packet);
+            sock?.Close();
+            sock?.Dispose();
+            sock = null;
+        }
     }
 }

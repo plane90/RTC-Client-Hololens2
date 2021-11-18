@@ -10,11 +10,6 @@ public class LoggerEditor : Editor
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
-
-        if (GUILayout.Button("Disconnect"))
-        {
-            Logger.Disconnect();
-        }
     }
 
 
