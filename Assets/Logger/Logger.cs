@@ -40,11 +40,6 @@ public class Logger : ScriptableObject
         }
     }
 
-    private void OnEnable()
-    {
-        Connect();
-    }
-
     void OnDisable()
     {
         Disconnect();
@@ -98,14 +93,14 @@ public class Logger : ScriptableObject
         {
             await Connect();
         }
-        _ = System.Threading.Tasks.Task.Run(() =>
-        {
-            sendSemaphore.Wait();
-            Thread.Sleep(10);
+        //_ = System.Threading.Tasks.Task.Run(() =>
+        //{
+        //    sendSemaphore.Wait();
             sock?.Send(packet);
+            Thread.Sleep(10);
             Debug.Log($"packet sended id:{Thread.CurrentThread.ManagedThreadId}");
-            sendSemaphore.Release();
-        });
+        //    sendSemaphore.Release();
+        //});
     }
 
     private static async System.Threading.Tasks.Task Connect()
@@ -127,7 +122,7 @@ public class Logger : ScriptableObject
             }
             sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             var iEP = new IPEndPoint(IPAddress.Parse(Instance.serverIp), Instance.serverPort);
-            Debug.Log($"Try To Connect Echo Server {iEP}");
+            Debug.Log($"Try To Connect Echo Server {iEP}"); 
             sock.Connect(iEP);
             Application.quitting += Disconnect;
             //connectSemaphore.Release();

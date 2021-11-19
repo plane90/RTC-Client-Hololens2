@@ -82,6 +82,7 @@ public class FrameCapture
 
     private async Task<MediaCaptureVideoProfile> GetVideoProfile()
     {
+        Logger.Log("GetVideoProfile");
         var devices = await DeviceInformation.FindAllAsync(DeviceClass.VideoCapture);
         foreach (var device in devices)
         {
@@ -127,13 +128,16 @@ public class FrameCapture
 
     private async Task RegisterFrameReceiverViaFrameReader()
     {
+        Logger.Log("RegisterFrameReceiverViaFrameReader");
         _mediaCapture.FrameSources.TryGetValue(_sourceInfo.Id, out _mediaFrameSource);
         var frameReader = await _mediaCapture.CreateFrameReaderAsync(_mediaFrameSource);
         frameReader.FrameArrived += OnFrameArrived;
+        Logger.Log("RegisterFrameReceiverViaFrameReader Done ");
     }
     
     private async void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
     {
+        Logger.Log("OnFrameArrived");
         var frameWrapper = sender.TryAcquireLatestFrame();
         var frame = frameWrapper.VideoMediaFrame;
         var bitmap = frame.SoftwareBitmap;
@@ -147,6 +151,7 @@ public class FrameCapture
 
     private async Task<byte[]> EncodedBytes(SoftwareBitmap soft, Guid encoderId)
     {
+        Logger.Log("EncodedBytes");
         byte[] array = null;
 
         // First: Use an encoder to copy from SoftwareBitmap to an in-mem stream (FlushAsync)
@@ -178,6 +183,7 @@ public class FrameCapture
 
         public MrcVideoEffectDefinition()
         {
+            Logger.Log("MrcVideoEffectDefinition created");
             Properties = new PropertySet
                 {
                     {"StreamType", MediaStreamType.VideoRecord},
