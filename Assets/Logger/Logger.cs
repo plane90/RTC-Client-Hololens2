@@ -8,13 +8,14 @@ using UnityEngine;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
+
 public class Logger : ScriptableObject
 {
     /* instance member */
-    [SerializeField] private string serverIp = "127.0.0.1";
-    [SerializeField] private int serverPort = 0;
+    [SerializeField] private string serverIp = "10.112.58.138";
+    [SerializeField] private int serverPort = 10004;
 
-    private static Socket sock;
+    public static Socket sock;
     private static Logger instance;
     private static SemaphoreSlim connectSemaphore = new SemaphoreSlim(1, 1);
     private static SemaphoreSlim sendSemaphore = new SemaphoreSlim(1, 1);
@@ -39,7 +40,17 @@ public class Logger : ScriptableObject
         }
     }
 
+    private void OnEnable()
+    {
+        Connect();
+    }
+
     void OnDisable()
+    {
+        Disconnect();
+    }
+
+    private void OnDestroy()
     {
         Disconnect();
     }
@@ -104,29 +115,27 @@ public class Logger : ScriptableObject
             Debug.Log("Not Found Logger instance");
             return;
         }
-        await System.Threading.Tasks.Task.Run(() =>
+        try
         {
-            try
+            //connectSemaphore.Wait();
+            if (sock != null)
             {
-                connectSemaphore.Wait();
-                if (sock != null)
-                {
-                    Debug.Log($"sock.connected: {sock.Connected}");
-                    connectSemaphore.Release();
-                    return;
-                }
-                sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                var iEP = new IPEndPoint(IPAddress.Parse(Instance.serverIp), Instance.serverPort);
-                Debug.Log($"Try To Connect Echo Server {iEP}");
-                sock.Connect(iEP);
-                Application.quitting += Disconnect;
-                connectSemaphore.Release();
+                Debug.Log($"sock.connected: {sock.Connected}");
+
+                //connectSemaphore.Release();
+                return;
             }
-            catch (Exception e)
-            {
-                Debug.Log(e.Message);
-            }
-        });
+            sock = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            var iEP = new IPEndPoint(IPAddress.Parse(Instance.serverIp), Instance.serverPort);
+            Debug.Log($"Try To Connect Echo Server {iEP}");
+            sock.Connect(iEP);
+            Application.quitting += Disconnect;
+            //connectSemaphore.Release();
+        }
+        catch (Exception e)
+        {
+            Debug.Log(e.Message);
+        }
     }
 
     public static void Disconnect()

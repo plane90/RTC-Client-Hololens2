@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cc78a0cb4fb3cc24c9d5fd4aa0737912, type: 3}
   m_Name: Logger
   m_EditorClassIdentifier: 
-  serverIp: 10.112.58.128
+  serverIp: 10.112.58.138
   serverPort: 10004
