@@ -132,6 +132,15 @@ public class FrameCapture
         _mediaCapture.FrameSources.TryGetValue(_sourceInfo.Id, out _mediaFrameSource);
         var frameReader = await _mediaCapture.CreateFrameReaderAsync(_mediaFrameSource);
         frameReader.FrameArrived += OnFrameArrived;
+        MediaFrameReaderStartStatus status = await frameReader.StartAsync();
+        if (status == MediaFrameReaderStartStatus.Success)
+        {
+            Logger.Log($"Started {_mediaFrameSource.Info.SourceKind} reader.");
+        }
+        else
+        {
+            Logger.Log($"Unable to start {_mediaFrameSource.Info.SourceKind} reader. Error: {status}");
+        }
         Logger.Log("RegisterFrameReceiverViaFrameReader Done ");
     }
     
@@ -166,7 +175,11 @@ public class FrameCapture
             {
                 await encoder.FlushAsync();
             }
-            catch (Exception ex) { return new byte[0]; }
+            catch (Exception e) 
+            {
+                Logger.Log(e.Message, e.StackTrace, LogType.Exception);
+                return new byte[0];
+            }
 
             array = new byte[ms.Size];
             await ms.ReadAsync(array.AsBuffer(), (uint)ms.Size, InputStreamOptions.None);

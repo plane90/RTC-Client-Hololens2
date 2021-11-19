@@ -97,7 +97,7 @@ public class Logger : ScriptableObject
         //{
         //    sendSemaphore.Wait();
             sock?.Send(packet);
-            Thread.Sleep(10);
+            Thread.Sleep(5);
             Debug.Log($"packet sended id:{Thread.CurrentThread.ManagedThreadId}");
         //    sendSemaphore.Release();
         //});
