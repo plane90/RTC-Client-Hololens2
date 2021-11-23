@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,10 +10,15 @@ public class Test : MonoBehaviour
     public GameObject connectedFail;
     public GameObject connectedSuccess;
     public Logger logger;
+    private System.Threading.Thread thread;
 
     private void Update()
     {
         transform.Rotate(transform.up * 10 * Time.deltaTime);
+        //byte[] imageData = new byte[1200000];
+        //System.Random random = new System.Random();
+        //random.NextBytes(imageData);
+        //Logger.Frame(imageData);
     }
 
     private void Start()
@@ -25,9 +31,8 @@ public class Test : MonoBehaviour
         {
             loggerInstanceSuccess.SetActive(true);
         }
-        Logger.Log($"hi id:{System.Threading.Thread.CurrentThread.ManagedThreadId}");
-        byte[] imageData = new byte[1200000];
-        Logger.Frame(imageData);
+        //byte[] imageData = new byte[1200000];
+        //Logger.Frame(imageData);
     }
 
     private void FixedUpdate()

@@ -6,6 +6,7 @@ public class SendingFrameTest : MonoBehaviour
 {
 #if ENABLE_WINMD_SUPPORT
     private FrameCapture frameCapture;
+    private float timer = 0f;
 
     private void Start()
     {
@@ -25,6 +26,7 @@ public class SendingFrameTest : MonoBehaviour
     private void OnFrameEncodedArrived(byte[] frame)
     {
         Logger.Frame(frame);
+        Logger.Log("Send Frame");
     }
 #endif
 }

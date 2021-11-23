@@ -30,6 +30,7 @@ public class FrameCapture
     private Windows.Media.Capture.Frames.MediaFrameSource _mediaFrameSource;
     private MediaFrameSourceKind sourceKind = MediaFrameSourceKind.Color;
     private MediaStreamType mediaStreamType = MediaStreamType.VideoRecord;
+    private float timer = 0f;
 
     public event Action<byte[]> FrameEncodedArrived;
 
@@ -68,6 +69,11 @@ public class FrameCapture
 
             foreach (var frameSourceInfo in _videoProfile.FrameSourceInfos)
             {
+                Logger.Log($"FrameSourceInfos: {frameSourceInfo.SourceKind}");
+            }
+
+            foreach (var frameSourceInfo in _videoProfile.FrameSourceInfos)
+            {
                 if (frameSourceInfo.SourceKind == sourceKind && frameSourceInfo.MediaStreamType == mediaStreamType)
                 {
                     _sourceInfo = frameSourceInfo;
@@ -99,7 +105,7 @@ public class FrameCapture
     {
         try
         {
-            Logger.Log("InitMediaCapture");
+            Logger.Log("Init MediaCapture");
             _mediaCapture = new MediaCapture();
             var initSetting = new MediaCaptureInitializationSettings()
             {
@@ -118,7 +124,7 @@ public class FrameCapture
                 Logger.Log("AddVideoEffectAsync Fail");
             }
             Logger.Log("Effect Added !");
-            Logger.Log("MediaCapture Initialized");
+            Logger.Log("Done");
         }
         catch (Exception e)
         {
@@ -128,7 +134,7 @@ public class FrameCapture
 
     private async Task RegisterFrameReceiverViaFrameReader()
     {
-        Logger.Log("RegisterFrameReceiverViaFrameReader");
+        Logger.Log("Create FrameReader & Register Event");
         _mediaCapture.FrameSources.TryGetValue(_sourceInfo.Id, out _mediaFrameSource);
         var frameReader = await _mediaCapture.CreateFrameReaderAsync(_mediaFrameSource);
         frameReader.FrameArrived += OnFrameArrived;
@@ -141,41 +147,43 @@ public class FrameCapture
         {
             Logger.Log($"Unable to start {_mediaFrameSource.Info.SourceKind} reader. Error: {status}");
         }
-        Logger.Log("RegisterFrameReceiverViaFrameReader Done ");
+        Logger.Log("Done ");
     }
-    
+
     private async void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
     {
-        Logger.Log("OnFrameArrived");
-        var frameWrapper = sender.TryAcquireLatestFrame();
-        var frame = frameWrapper.VideoMediaFrame;
-        var bitmap = frame.SoftwareBitmap;
-        var buffer = await EncodedBytes(bitmap, BitmapEncoder.JpegEncoderId);
-        FrameEncodedArrived(buffer);
-        foreach (var dc in PeerManager.DataChannels)
+        try
         {
-            //dc.SendMessage()
+            Logger.Log($"Media Source Arrived ! threadID:{System.Threading.Thread.CurrentThread.ManagedThreadId}");
+            var frameWrapper = sender.TryAcquireLatestFrame();
+            var frame = frameWrapper.VideoMediaFrame;
+            Logger.Log($"VideoFormat: {frame.VideoFormat.MediaFrameFormat}");
+            var bitmap = SoftwareBitmap.Convert(frame.SoftwareBitmap, BitmapPixelFormat.Rgba8);
+            var buffer = await EncodedBytes(bitmap, BitmapEncoder.JpegEncoderId);
+            FrameEncodedArrived(buffer);
+        }
+        catch (Exception e)
+        {
+            Logger.Log(e.Message, e.StackTrace, LogType.Exception);
         }
     }
 
-    private async Task<byte[]> EncodedBytes(SoftwareBitmap soft, Guid encoderId)
+    private async Task<byte[]> EncodedBytes(SoftwareBitmap bitmap, Guid encoderId)
     {
-        Logger.Log("EncodedBytes");
         byte[] array = null;
-
         // First: Use an encoder to copy from SoftwareBitmap to an in-mem stream (FlushAsync)
         // Next:  Use ReadAsync on the in-mem stream to get byte[] array
 
         using (var ms = new InMemoryRandomAccessStream())
         {
             BitmapEncoder encoder = await BitmapEncoder.CreateAsync(encoderId, ms);
-            encoder.SetSoftwareBitmap(soft);
+            encoder.SetSoftwareBitmap(bitmap);
 
             try
             {
                 await encoder.FlushAsync();
             }
-            catch (Exception e) 
+            catch (Exception e)
             {
                 Logger.Log(e.Message, e.StackTrace, LogType.Exception);
                 return new byte[0];
@@ -196,7 +204,7 @@ public class FrameCapture
 
         public MrcVideoEffectDefinition()
         {
-            Logger.Log("MrcVideoEffectDefinition created");
+            Logger.Log("MrcVideoEffectDefinition Created");
             Properties = new PropertySet
                 {
                     {"StreamType", MediaStreamType.VideoRecord},
