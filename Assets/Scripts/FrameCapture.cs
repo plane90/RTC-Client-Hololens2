@@ -31,12 +31,14 @@ public class FrameCapture
     private MediaFrameSourceKind sourceKind = MediaFrameSourceKind.Color;
     private MediaStreamType mediaStreamType = MediaStreamType.VideoRecord;
     private float timer = 0f;
+    private BufferScheduler bufferScheduler;
 
     public event Action<byte[]> FrameEncodedArrived;
+    public event Action<BufferScheduler> OnReadyToReceiveFrame;
 
-    public FrameCapture(Action<byte[]> action)
+    public FrameCapture(Action<BufferScheduler> OnReadyToReceiveFrame)
     {
-        FrameEncodedArrived = action;
+        this.OnReadyToReceiveFrame = OnReadyToReceiveFrame;
     }
 
     public async void Run()
@@ -48,6 +50,9 @@ public class FrameCapture
             await InitVideoSource();
             await InitMediaCapture();
             await RegisterFrameReceiverViaFrameReader();
+            bufferScheduler = new BufferScheduler();
+            OnReadyToReceiveFrame(bufferScheduler);
+            Logger.Log("BufferScheduler Created");
         }
         catch (Exception e)
         {
@@ -152,18 +157,21 @@ public class FrameCapture
 
     private async void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
     {
+        BufferScheduler.FrameBuffer fb = new BufferScheduler.FrameBuffer();
+        bufferScheduler.AddSource(fb);
         try
         {
             Logger.Log($"Media Source Arrived ! threadID:{System.Threading.Thread.CurrentThread.ManagedThreadId}");
             var frameWrapper = sender.TryAcquireLatestFrame();
-            var frame = frameWrapper.VideoMediaFrame;
-            Logger.Log($"VideoFormat: {frame.VideoFormat.MediaFrameFormat}");
-            var bitmap = SoftwareBitmap.Convert(frame.SoftwareBitmap, BitmapPixelFormat.Rgba8);
-            var buffer = await EncodedBytes(bitmap, BitmapEncoder.JpegEncoderId);
-            FrameEncodedArrived(buffer);
+            var vmf = frameWrapper.VideoMediaFrame;
+            Logger.Log($"Video Frame Rate: {vmf.VideoFormat.MediaFrameFormat.FrameRate}");
+            var bitmap = SoftwareBitmap.Convert(vmf.SoftwareBitmap, BitmapPixelFormat.Rgba8);
+            fb.frame = await EncodedBytes(bitmap, BitmapEncoder.JpegEncoderId);
+            fb.isReady = true;
         }
         catch (Exception e)
         {
+            fb.isFail = true;
             Logger.Log(e.Message, e.StackTrace, LogType.Exception);
         }
     }
@@ -178,7 +186,8 @@ public class FrameCapture
         {
             BitmapEncoder encoder = await BitmapEncoder.CreateAsync(encoderId, ms);
             encoder.SetSoftwareBitmap(bitmap);
-
+            encoder.BitmapTransform.ScaledWidth = 640;
+            encoder.BitmapTransform.ScaledHeight = 480;
             try
             {
                 await encoder.FlushAsync();

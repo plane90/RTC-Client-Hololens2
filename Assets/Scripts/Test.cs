@@ -31,8 +31,18 @@ public class Test : MonoBehaviour
         {
             loggerInstanceSuccess.SetActive(true);
         }
-        //byte[] imageData = new byte[1200000];
+        //int cnt = 0;
+        //Logger.Log($"hi {cnt++}");  // 0
+        //byte[] imageData = new byte[10] { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
         //Logger.Frame(imageData);
+        //Logger.Log($"hi {cnt++}");  // 1
+        //imageData = new byte[10] { 9, 8, 7, 6, 5, 6, 7, 8, 9, 10 };
+        //Logger.Frame(imageData);
+        //Logger.Log($"hi {cnt++}");  // 2
+        //Logger.Log($"hi {cnt++}");  // 3
+        //Logger.Frame(imageData);
+        //Logger.Log($"hi {cnt++}");  // 4
+        //Logger.Log($"hi {cnt++}");  // 5
     }
 
     private void FixedUpdate()

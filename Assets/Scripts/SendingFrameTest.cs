@@ -7,6 +7,7 @@ public class SendingFrameTest : MonoBehaviour
 #if ENABLE_WINMD_SUPPORT
     private FrameCapture frameCapture;
     private float timer = 0f;
+    BufferScheduler bs;
 
     private void Start()
     {
@@ -23,10 +24,23 @@ public class SendingFrameTest : MonoBehaviour
         }
     }
 
-    private void OnFrameEncodedArrived(byte[] frame)
+    private async void Update()
     {
-        Logger.Frame(frame);
-        Logger.Log("Send Frame");
+        if (bs != null)
+        {
+            var frame = await bs.GetLatestFrame();
+            if (frame != null)
+            {
+                Logger.Log("Sending Frame");
+                Logger.Frame(frame);
+            }
+        }
+    }
+
+    private void OnFrameEncodedArrived(BufferScheduler bs)
+    {
+        Logger.Log("Ready to Receive Frame ");
+        this.bs = bs;
     }
 #endif
 }

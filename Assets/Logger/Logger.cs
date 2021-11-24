@@ -20,6 +20,10 @@ public class Logger : ScriptableObject
     private static SemaphoreSlim connectSemaphore = new SemaphoreSlim(1, 1);
     private static SemaphoreSlim sendSemaphore = new SemaphoreSlim(1, 1);
     private static Queue<byte[]> sendQueue = new Queue<byte[]>();
+    private const int HEADER_SIZE = 10;
+    private const int LOG_CONTENT_SIZE = 8 * 1024;
+    private const bool LOG_ENABLE = false;
+
 
     public static Logger Instance
     {
@@ -73,20 +77,19 @@ public class Logger : ScriptableObject
         Disconnect();
     }
 
-    public static async void Log(string logString, string stackTrace = "", LogType type = LogType.Log, [CallerMemberName] string methodName = null, [CallerFilePath] string fileName = null, [CallerLineNumber] int lineNo = -1)
+    public static void Log(string logString, string stackTrace = "", LogType type = LogType.Log, [CallerMemberName] string methodName = null, [CallerFilePath] string fileName = null, [CallerLineNumber] int lineNo = -1)
     {
-        await sendSemaphore.WaitAsync();
         Debug.Log(logString);
-        byte[] hPacket = new byte[10];
-        using (MemoryStream ms = new MemoryStream(hPacket))
+        if (!LOG_ENABLE) return;
+        byte[] packet = new byte[HEADER_SIZE + LOG_CONTENT_SIZE];
+        using (MemoryStream ms = new MemoryStream(packet))
         using (BinaryWriter bw = new BinaryWriter(ms))
         {
-            // 0: string 1: binary 2: close
+            // 0: log 1: frame 2: close
             bw.Write("0");
-            sendQueue.Enqueue(hPacket);
         }
 
-        byte[] cPacket = new byte[8 * 1024];
+        byte[] cPacket = new byte[LOG_CONTENT_SIZE];
 
         using (MemoryStream ms = new MemoryStream(cPacket))
         using (BinaryWriter bw = new BinaryWriter(ms))
@@ -100,34 +103,35 @@ public class Logger : ScriptableObject
             }
             bw.Write($"{stackTrace}");
             bw.Write("");
-            //Send(cPacket);
-            sendQueue.Enqueue(cPacket);
         }
-        sendSemaphore.Release();
+
+        Buffer.BlockCopy(cPacket, 0, packet, HEADER_SIZE, LOG_CONTENT_SIZE);
+        SendAsync(packet);
     }
 
-    public static void Frame(byte[] frameEncoded)
+    public static void Frame(byte[] frame)
     {
-        sendSemaphore.Wait();
-        byte[] hPacket = new byte[10];
-        using (MemoryStream ms = new MemoryStream(hPacket))
+        byte[] packet = new byte[HEADER_SIZE + frame.Length];
+        using (MemoryStream ms = new MemoryStream(packet))
         using (BinaryWriter bw = new BinaryWriter(ms))
         {
-            // 0: string 1: binary 2: close
+            // 0: log 1: frame 2: close
             bw.Write("1");
-            bw.Write($"{frameEncoded.Length}");
-            //Send(hPacket);
-            sendQueue.Enqueue(hPacket);
+            bw.Write($"{frame.Length}");
         }
 
-        byte[] cPacket = frameEncoded;
-        //Send(cPacket);
-        sendQueue.Enqueue(cPacket);
-        sendSemaphore.Release();
+        Buffer.BlockCopy(frame, 0, packet, HEADER_SIZE, frame.Length);
+        SendAsync(packet);
+
         if (Thread.CurrentThread.ManagedThreadId != 1)
         {
             Thread.CurrentThread.Abort();
         }
+    }
+
+    private static void SendAsync(byte[] packet)
+    {
+        sendQueue.Enqueue(packet);
     }
 
     private static async void Send(byte[] packet)
@@ -194,7 +198,6 @@ public class Logger : ScriptableObject
                 bw.Write("");
                 sendQueue.Enqueue(hPakcet);
             }
-            sendSemaphore.Release();
         }
         catch (Exception e)
         {
