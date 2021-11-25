@@ -109,6 +109,37 @@ public class Logger : ScriptableObject
         SendAsync(packet);
     }
 
+    public static void LogHidden(string logString, string stackTrace = "", LogType type = LogType.Log, [CallerMemberName] string methodName = null, [CallerFilePath] string fileName = null, [CallerLineNumber] int lineNo = -1)
+    {
+        Debug.Log(logString);
+        byte[] packet = new byte[HEADER_SIZE + LOG_CONTENT_SIZE];
+        using (MemoryStream ms = new MemoryStream(packet))
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            // 0: log 1: frame 2: close
+            bw.Write("0");
+        }
+
+        byte[] cPacket = new byte[LOG_CONTENT_SIZE];
+
+        using (MemoryStream ms = new MemoryStream(cPacket))
+        using (BinaryWriter bw = new BinaryWriter(ms))
+        {
+            bw.Write($"{type.GetHashCode()}");
+            bw.Write($"{DateTime.Now.ToString("hh:mm:ss")}");
+            bw.Write($"{logString}");
+            if (string.IsNullOrEmpty(stackTrace))
+            {
+                stackTrace += $"{methodName} (at {fileName}:{lineNo})";
+            }
+            bw.Write($"{stackTrace}");
+            bw.Write("");
+        }
+
+        Buffer.BlockCopy(cPacket, 0, packet, HEADER_SIZE, LOG_CONTENT_SIZE);
+        SendAsync(packet);
+    }
+
     public static void Frame(byte[] frame)
     {
         byte[] packet = new byte[HEADER_SIZE + frame.Length];
@@ -122,11 +153,6 @@ public class Logger : ScriptableObject
 
         Buffer.BlockCopy(frame, 0, packet, HEADER_SIZE, frame.Length);
         SendAsync(packet);
-
-        if (Thread.CurrentThread.ManagedThreadId != 1)
-        {
-            Thread.CurrentThread.Abort();
-        }
     }
 
     private static void SendAsync(byte[] packet)

@@ -23,14 +23,14 @@ public class Test : MonoBehaviour
 
     private void Start()
     {
-        if (Logger.Instance == null)
-        {
-            loggerInstanceFail.SetActive(true);
-        }
-        else
-        {
-            loggerInstanceSuccess.SetActive(true);
-        }
+        //if (Logger.Instance == null)
+        //{
+        //    loggerInstanceFail.SetActive(true);
+        //}
+        //else
+        //{
+        //    loggerInstanceSuccess.SetActive(true);
+        //}
         //int cnt = 0;
         //Logger.Log($"hi {cnt++}");  // 0
         //byte[] imageData = new byte[10] { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
@@ -45,17 +45,17 @@ public class Test : MonoBehaviour
         //Logger.Log($"hi {cnt++}");  // 5
     }
 
-    private void FixedUpdate()
-    {
-        if(Logger.sock != null)
-        {
-            connectedSuccess.SetActive(true);
-            connectedFail.SetActive(false);
-        }
-        else
-        {
-            connectedSuccess.SetActive(false);
-            connectedFail.SetActive(true);
-        }
-    }
+    //private void FixedUpdate()
+    //{
+    //    if(Logger.sock != null)
+    //    {
+    //        connectedSuccess.SetActive(true);
+    //        connectedFail.SetActive(false);
+    //    }
+    //    else
+    //    {
+    //        connectedSuccess.SetActive(false);
+    //        connectedFail.SetActive(true);
+    //    }
+    //}
 }

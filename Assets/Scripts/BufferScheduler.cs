@@ -12,6 +12,7 @@ using Windows.Storage.Streams;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Graphics.Imaging;
 using System.Collections.Generic;
+using UnityEngine;
 #else
 using System;
 using System.Collections;
@@ -24,36 +25,36 @@ using UnityEngine;
 public class BufferScheduler
 {
 #if ENABLE_WINMD_SUPPORT
-    public class FrameBuffer
+    public class FrameInfo
     {
         public bool isReady = false;
         public bool isFail = false;
         public byte[] frame;
     }
 
-    private Queue<FrameBuffer> sq = new Queue<FrameBuffer>();
+    private Queue<FrameInfo> fq = new Queue<FrameInfo>();
 
-    public void AddSource(FrameBuffer fb)
+    public void AddSource(FrameInfo fb)
     {
-        sq.Enqueue(fb);
+        fq.Enqueue(fb);
     }
 
     public async Task<byte[]> GetLatestFrame()
     {
         try
         {
-            var source = sq.Dequeue();
-            await Task.Run(() =>
-            {
+            var frameInfo = fq.Dequeue();
+            //await Task.Run(() =>
+            //{
                 while (true)
                 {
-                    if (source.isReady || source.isFail)
+                    if (frameInfo.isReady || frameInfo.isFail)
                     {
                         break;
                     }
                 }
-            });
-            return source.frame;
+            //});
+            return frameInfo.frame;
         }
         catch (Exception e)
         {

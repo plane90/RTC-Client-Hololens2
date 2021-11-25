@@ -22,25 +22,37 @@ public class SendingFrameTest : MonoBehaviour
         {
             Logger.Log(e.Message, e.StackTrace, LogType.Exception);
         }
+        
     }
 
-    private async void Update()
-    {
-        if (bs != null)
-        {
-            var frame = await bs.GetLatestFrame();
-            if (frame != null)
-            {
-                Logger.Log("Sending Frame");
-                Logger.Frame(frame);
-            }
-        }
-    }
+    //private async void Update()
+    //{
+    //    if (bs != null)
+    //    {
+    //        var frame = await bs.GetLatestFrame();
+    //        if (frame != null)
+    //        {
+    //            Logger.Log("Sending Frame");
+    //            Logger.Frame(frame);
+    //        }
+    //    }
+    //}
 
     private void OnFrameEncodedArrived(BufferScheduler bs)
     {
-        Logger.Log("Ready to Receive Frame ");
-        this.bs = bs;
+        Logger.Log("Ready to receive frame ");
+        //this.bs = bs;
+        System.Threading.Tasks.Task.Run(async () =>
+        {
+            while (true)
+            {
+                var frame = await bs?.GetLatestFrame();
+                if (frame != null)
+                {
+                    Logger.Frame(frame);
+                }
+            }
+        });
     }
 #endif
 }
