@@ -50,9 +50,6 @@ public class FrameCapture
             await InitVideoSource();
             await InitMediaCapture();
             await RegisterFrameReceiverViaFrameReader();
-            bufferScheduler = new BufferScheduler();
-            OnReadyToReceiveFrame(bufferScheduler);
-            Logger.Log("BufferScheduler Created");
         }
         catch (Exception e)
         {
@@ -137,21 +134,40 @@ public class FrameCapture
         }
     }
 
+    private async Task StartRecordeAndSendStream()
+    {
+        var encodingProfile = Windows.Media.MediaProperties.MediaEncodingProfile.CreateMp4(Windows.Media.MediaProperties.VideoEncodingQuality.Vga);
+        using (var ms = new InMemoryRandomAccessStream())
+        {
+            await _mediaCapture.StartRecordToStreamAsync(encodingProfile, ms);
+            
+        }
+    }
+
     private async Task RegisterFrameReceiverViaFrameReader()
     {
         Logger.Log("Create FrameReader & Register Event");
         _mediaCapture.FrameSources.TryGetValue(_sourceInfo.Id, out _mediaFrameSource);
-        var frameReader = await _mediaCapture.CreateFrameReaderAsync(_mediaFrameSource);
+        var encodingProfile = Windows.Media.MediaProperties.MediaEncodingSubtypes.Yuy2;
+        BitmapSize bitmapSize;
+        bitmapSize.Width = 480;
+        bitmapSize.Height = 320;
+        var frameReader = await _mediaCapture.CreateFrameReaderAsync(_mediaFrameSource, encodingProfile, bitmapSize);
         frameReader.AcquisitionMode = MediaFrameReaderAcquisitionMode.Realtime;
         frameReader.FrameArrived += OnFrameArrived;
+
         MediaFrameReaderStartStatus status = await frameReader.StartAsync();
         if (status == MediaFrameReaderStartStatus.Success)
         {
             Logger.Log($"Started {_mediaFrameSource.Info.SourceKind} reader.");
+            bufferScheduler = new BufferScheduler();
+            OnReadyToReceiveFrame(bufferScheduler);
+            Logger.Log("BufferScheduler Created");
         }
         else
         {
             Logger.Log($"Unable to start {_mediaFrameSource.Info.SourceKind} reader. Error: {status}");
+            return;
         }
         Logger.Log("Done ");
     }
@@ -166,7 +182,7 @@ public class FrameCapture
         }
         else
         {
-            Logger.LogHidden($"Frame Per Second: {cnt}");
+            Logger.LogHidden($"Frame Per Second: {cnt}, ThreadID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
             sec = DateTime.Now.Second;
             cnt = 0;
         }
@@ -197,8 +213,8 @@ public class FrameCapture
         {
             BitmapEncoder encoder = await BitmapEncoder.CreateAsync(encoderId, ms);
             encoder.SetSoftwareBitmap(bitmap);
-            encoder.BitmapTransform.ScaledWidth = 480;
-            encoder.BitmapTransform.ScaledHeight = 320;
+            //encoder.BitmapTransform.ScaledWidth = 480;
+            //encoder.BitmapTransform.ScaledHeight = 320;
             try
             {
                 await encoder.FlushAsync();

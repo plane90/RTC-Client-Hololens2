@@ -14,6 +14,7 @@ public class Logger : ScriptableObject
     /* instance member */
     [SerializeField] private string serverIp = "10.112.58.138";
     [SerializeField] private int serverPort = 10004;
+    [SerializeField] private bool enableLog = false;
 
     public static Socket sock;
     private static Logger instance;
@@ -22,7 +23,6 @@ public class Logger : ScriptableObject
     private static Queue<byte[]> sendQueue = new Queue<byte[]>();
     private const int HEADER_SIZE = 10;
     private const int LOG_CONTENT_SIZE = 8 * 1024;
-    private const bool LOG_ENABLE = false;
 
 
     public static Logger Instance
@@ -80,7 +80,7 @@ public class Logger : ScriptableObject
     public static void Log(string logString, string stackTrace = "", LogType type = LogType.Log, [CallerMemberName] string methodName = null, [CallerFilePath] string fileName = null, [CallerLineNumber] int lineNo = -1)
     {
         Debug.Log(logString);
-        if (!LOG_ENABLE) return;
+        if (!Instance.enableLog) return;
         byte[] packet = new byte[HEADER_SIZE + LOG_CONTENT_SIZE];
         using (MemoryStream ms = new MemoryStream(packet))
         using (BinaryWriter bw = new BinaryWriter(ms))

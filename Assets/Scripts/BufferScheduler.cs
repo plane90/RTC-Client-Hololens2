@@ -43,6 +43,11 @@ public class BufferScheduler
     {
         try
         {
+            if (fq.Count == 0)
+            {
+                return null;
+            }
+
             var frameInfo = fq.Dequeue();
             //await Task.Run(() =>
             //{
